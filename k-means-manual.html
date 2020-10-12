@@ -1,0 +1,192 @@
+<html>
+<head>
+	<style>
+		body{
+			margin:0;
+		}
+		canvas{
+			background:#ddd;
+		}
+	</style>
+</head>
+<body>
+
+	<script>
+		function createCanvas(width, height){
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+
+			return [canvas, canvas.getContext('2d')];
+		}
+		function log(...q){
+			return console.log(...q);
+		}
+		function rand(min, max){
+			return Math.floor(Math.random() * (max - min)) + min;
+		}
+		function generateData(min, max, count = 100){
+			let data = [];
+			for(let i = 0; i < count; i ++){
+				let point = new Point(
+					rand(min, max),
+					rand(min, max)
+				);
+				
+				data.push(point);
+			}
+			return data;
+		}
+		function Point(x, y){
+			this.x = x;
+			this.y = y;
+			
+			this.toJson = () => JSON.stringify(this);
+		}
+		function createClusters(count = 10){
+			const clusters = {};
+			let i = 0;
+			
+			while(i < count){
+				const index = rand(0, data.length);
+				const point = data[index];
+				
+				if(clusters[point.toJson()] === undefined){
+					clusters[point.toJson()] = [];
+					i ++;
+				}
+			}
+			
+			return clusters;
+		}
+		function updateClusters(clusters){
+			let newClusters = {};
+			
+			for(let clusterKey in clusters){
+				const clusterPoints = clusters[clusterKey];
+				let sum = new Point(0, 0);
+				const count = Object.keys(clusterPoints).length;
+				
+				for(let pointIndex of clusterPoints){
+					const point = data[pointIndex];
+					
+					sum.x += point.x;
+					sum.y += point.y;
+				}
+				
+				let avg = new Point(sum.x / count, sum.y / count);
+				newClusters[avg.toJson()] = [];
+			}
+			
+			return newClusters;
+		}
+		function distributeData(clusters){
+			for(let clusterKey in clusters){
+				clusters[clusterKey] = [];
+			}
+			
+			for(let pointIndex in data){
+				let point = data[pointIndex];
+				let nearestCluster = {
+					key : null,
+					value : null
+				};
+
+				for(let clusterKey in clusters){
+					const clusterPoint = JSON.parse(clusterKey)
+					const distance = Math.sqrt(
+						Math.pow(clusterPoint.x - point.x, 2) + Math.pow(clusterPoint.y - point.y, 2)
+					);
+					
+					if(nearestCluster.key === null || nearestCluster.value > distance){
+						nearestCluster = {
+							key : clusterKey,
+							value : distance
+						};
+					}
+				}
+				
+				clusters[nearestCluster.key].push(pointIndex);
+			}
+			
+			return clusters;
+		}
+		function drawPoint(point, color, isClusterCenter = false){
+			let scale = 1;
+			let size = 4;
+			let x = point.x * scale;
+			let y = point.y * scale;
+			
+			if(isClusterCenter){
+				x -= size / 2;
+				y -= size / 2;
+				size *= 2;
+			}
+			
+			context.fillStyle = color;
+			context.fillRect(x, y, size, size);
+		}
+		function drawPointWithText(...args){
+			context.fillStyle = args[0];
+			context.fillText(`${ args[1].x },${ args[1].y }`, args[1].x, args[1].y + 30);
+			return drawPoint(...args);
+		}
+		function drawClusters(clusters){
+			const colors = ["#3F51B5", "#795548", "#03A9F4", "#FF9800", "#8BC34A", "#9C27B0", "#FFEB3B", "#607D8B", "#009688", "#f44336"];
+			let colorIndex = 0;
+			
+			for(let clusterKey in clusters){
+				const clusterPoints = clusters[clusterKey];
+				const color = colors[colorIndex ++];
+				
+				for(let pointIndex of clusterPoints){
+					const point = data[pointIndex];
+					
+					drawPoint(point, color);
+				}
+				
+				drawPoint(JSON.parse(clusterKey), color, true);
+			}
+		}
+		function clear(){
+			context.clearRect(0, 0, canvas.width, canvas.height);
+		}
+		function drawData(data){
+			for(let point of data){
+				drawPoint(point, 'black');
+			}
+		}
+		function clustersAreSame(clusters1, clusters2){
+			for(let clusterKey in clusters1){
+				if(clusters2[clusterKey] === undefined){
+					return false;
+				}
+			}
+			
+			return true;
+		}
+		
+		const config = {
+			boardSize : 500,
+			dataLength : 100,
+			clustersLength : 5
+		};
+		const [canvas, context] = createCanvas(config.boardSize + 10, config.boardSize + 10);
+		document.body.appendChild(canvas);
+		
+		let clusters = null;
+		const data = generateData(0, config.boardSize, config.dataLength);
+		drawData(data);
+		
+		window.onkeydown = e => {
+			if(e.code === 'Space'){
+				clusters = distributeData(clusters === null ? createClusters(config.clustersLength) : updateClusters(clusters));
+				clear();
+				drawClusters(clusters);
+			}
+		}
+		
+	</script>
+</body>
+</html>
+</html>

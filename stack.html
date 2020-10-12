@@ -1,0 +1,276 @@
+<html>
+<head>
+
+	<style>
+		.container{
+			width:90%;
+			height:90%;
+			position:fixed;
+			margin:auto;
+			top:0;
+			bottom:0;
+			left:0;
+			right:0;
+			background:#eee;
+			display:flex;
+			align-items:flex-end;
+			padding:10px;
+		}
+		#stack{
+			box-sizing:border-box;
+			border-bottom:5px solid #999;
+			border-right:5px solid #999;
+			border-left:5px solid #999;
+			width:50%;
+			height:90%;
+			display:flex;
+			flex-direction:column;
+			justify-content:flex-end;
+			padding:0 10px 10px 10px;
+		}
+		#stack > *{
+			width:100%;
+			height:50px;
+			background:red;
+			display:flex;
+			justify-content:center;
+			align-items:center;
+			margin-top:10px;
+			color:#fff;
+		}
+		#actions{
+			display:flex;
+			width:50%;
+			flex-direction:column;
+			box-sizing:border-box;
+			padding-left:10px;
+		}
+		#actions > div{
+			height:50px;
+			width:100%;
+			margin-top:10px;
+			display:flex;
+			justify-content : space-between;
+		}
+		#actions > div > *{
+			width:calc(50% - 5px);
+		}
+		#actions > div.full > *{
+			width:100%;
+		}
+		#push-item{
+			background:blue;
+			display:flex;
+			justify-content:center;
+			align-items:center;
+			position:absolute;
+			right:10px;
+			bottom:10px;
+			width:160px;
+			height:50px;
+			color:#fff;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div id="stack">
+			<span>1</span>
+			<span>2</span>
+		</div>
+		<div id="actions">
+			<div class="full">
+				<button id="pop">Pop</button>
+			</div>
+			<div>
+				<button id="push">Push</button>
+				<span contenteditable="true" autofocus id="push-item">1</span>
+			</div>
+		</div>
+	</div>
+	
+	<script>
+		window.log = (...q) => console.log(...q);
+		window.$ = q => document.querySelector(q);
+		window.$$ = q => document.querySelectorAll(q);
+
+		class Stack{
+			constructor(capacity = 8){
+				this._capacity = capacity;
+				this._items = [];
+			}
+			getCapacity(){
+				return this._capacity;
+			}
+			isFull(){
+				return this.getLength() >= this._capacity;
+			}
+			isNotFull(){
+				return !this.isFull();
+			}
+			push(item){
+				if(this.isFull()) return this;
+				
+				this._items.push(item);
+				return this;
+			}
+			pop(){
+				return this._items.pop();
+			}
+			getLength(){
+				return this._items.length;
+			}
+			isEmpty(){
+				return this.getLength() === 0;
+			}
+			isNotEmpty(){
+				return !this.isEmpty();
+			}
+			getItems(){
+				return this._items;
+			}
+		}
+		
+		const colors = ['#ffbe76', '#ff7979', '#badc58', '#f9ca24', '#f0932b', '#eb4d4b', '#6ab04c', '#7ed6df', '#e056fd', '#686de0', '#30336b', '#be2edd', '#4834d4'];
+		function randColor(){
+			return colors[Math.floor(Math.random() * colors.length)];
+		}
+
+		const capacity = Math.floor($('#stack').getBoundingClientRect().height / 60);
+		const stack = new Stack(capacity);
+		stack.push({ item : 1, color : randColor() });
+		stack.push({ item : 2, color : randColor() });
+		buttonsStatus();
+		showStack(stack);
+		
+		let color = randColor();
+		let pushItemWidth = $('#actions').getBoundingClientRect().width / 2 - 10 + 'px';
+				
+		$('#push-item').style.width = pushItemWidth;
+		$('#push-item').style.background = color;
+		
+		$('#push').onclick = async function(){
+			if(stack.isFull()) return;
+		
+			const item = $('#push-item');
+			stack.push({
+				item : item.innerText,
+				color : color
+			});
+			buttonsStatus();
+			$('#push').disabled = true;
+
+
+			item.style.transition = 'all .4s';
+			const containerRect = $('.container').getBoundingClientRect();
+			let itemRect = item.getBoundingClientRect();
+			
+			item.style.bottom = `calc(100% - ${ itemRect.height + 10 }px)`;
+			itemRect.width = $('#stack').getBoundingClientRect().width - 30;
+			item.style.width = itemRect.width + 'px';
+			await sleep(400);
+			item.style.right = `calc(100% - ${ itemRect.width + 25 }px)`;
+			await sleep(400);
+			item.style.bottom = ((stack.getLength() - 1) * 60 + 25) + 'px';
+			await sleep(400);
+			
+			showStack(stack);
+						
+			item.style.transition = 'none';
+			item.style.bottom = '10px';
+			item.style.right = '10px';
+			item.style.width = '160px';
+			item.style.width = $('#actions').getBoundingClientRect().width / 2 - 10 + 'px';
+			//item.style.opacity = 0;
+			
+			color = randColor();
+			item.style.background = color;
+			
+			if(stack.isNotFull()) $('#push').disabled = false;
+		};
+		$('#pop').onclick = async function(){
+			if(stack.isEmpty()) return;
+			
+			stack.pop();
+			buttonsStatus();
+			$('#pop').disabled = true;
+			
+			let item = $('#stack > *:first-child');
+			let itemRect = item.getBoundingClientRect();
+			
+			item.style.position = 'absolute';
+			item.style.width = itemRect.width + 'px';
+			item.style.bottom = (stack.getLength() * 60 + 25) + 'px';
+			item.style.left = '25px';
+			
+			await sleep(10);
+			item.style.transition = 'all .4s';
+			await sleep(10);
+			
+			item.style.bottom = `calc(100% - ${ itemRect.height + 10 }px)`;
+			await sleep(400);
+			
+			item.style.left = `calc(50% - ${ itemRect.width / 2 }px)`;
+			item.style.bottom = `calc(50% - ${ itemRect.height / 2 }px)`;
+			item.style.transform = 'scale(4)';
+			item.style.opacity = 0;
+			await sleep(400);
+			
+			item.remove();
+			if(stack.isNotEmpty()) $('#pop').disabled = false;
+		};
+		
+		function sleep(time){
+			return new Promise(resolve => {
+				setTimeout(resolve, time);
+			});
+		}
+		function showStack(stack){
+			const stackEl = $('#stack');
+			stackEl.innerHTML = '';
+			for(let i = stack.getLength() - 1; i >= 0; i --){
+				let item = stack.getItems()[i];
+				const span = document.createElement('span');
+				span.innerText = item.item;
+				span.style.background = item.color;
+				stackEl.appendChild(span);
+			}
+		}
+		
+		window.onresize = function(){
+			pushItemWidth = $('#actions').getBoundingClientRect().width / 2 - 10 + 'px';
+			$('#push-item').style.width = pushItemWidth;
+		}
+		function buttonsStatus(){
+			const stackEl = $('#stack');
+			
+			if(stack.isFull()){
+				$('#push').disabled = true;
+				$('#pop').disabled = false;
+				
+				stackEl.style.transition = 'all .4s';
+				stackEl.style.borderBottomColor = 'rgb(235, 77, 75)';
+				stackEl.style.borderLeftColor = 'rgb(235, 77, 75)';
+				stackEl.style.borderRightColor = 'rgb(235, 77, 75)';
+			}else if(stack.isEmpty()){
+				$('#pop').disabled = true;
+				$('#push').disabled = false;
+				
+				
+				stackEl.style.transition = 'all .4s';
+				stackEl.style.borderBottomColor = '#999';
+				stackEl.style.borderLeftColor = '#999';
+				stackEl.style.borderRightColor = '#999';
+			}else{
+				$('#push').disabled = false;
+				$('#pop').disabled = false;
+				
+				stackEl.style.transition = 'all .4s';
+				stackEl.style.borderBottomColor = '#999';
+				stackEl.style.borderLeftColor = '#999';
+				stackEl.style.borderRightColor = '#999';
+			}
+		}
+	</script>
+</body>
+</html>

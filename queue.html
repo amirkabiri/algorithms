@@ -1,0 +1,277 @@
+<html>
+<head>
+	<style>
+		.container{
+			width:90%;
+			height:90%;
+			background:#eee;
+			position:fixed;
+			top:0;
+			bottom:0;
+			left:0;
+			right:0;
+			margin:auto;
+			padding:10px;
+			display:flex;
+			align-items:center;
+			justify-content:space-between;
+		}
+		#queue{
+			width:calc(50% - 5px);
+			height:calc(100% - 120px);
+			box-sizing:border-box;
+			border-right:5px solid #999;
+			border-left:5px solid #999;
+			padding:0 10px;
+			display:flex;
+			flex-direction:column;
+			justify-content:flex-end;
+		}
+		#queue > *{
+			width:100%;
+			height:50px;
+			background:red;
+			color:#fff;
+			margin-top:10px;
+			display:flex;
+			justify-content:center;
+			align-items:center;
+		}
+		#queue > *:first-child{
+			margin-top:0;
+		}
+		#actions{
+			width:calc(50% - 5px);
+			height:100%;
+			box-sizing:border-box;
+			display:flex;
+			flex-direction:column;
+			justify-content:flex-end;
+		}
+		#actions > div{
+			width:100%;
+			display:flex;
+			justify-content:space-between;
+			margin-top:10px;
+		}
+		#actions > div > *{
+			height:50px;
+			display:inline-flex;
+			justify-content:center;
+			align-items:center;
+			width:calc(50% - 5px);
+		}
+		#actions > div.full > *{
+			width:100%;
+		}
+		#enqueue-item{
+			background:blue;
+			color:#fff;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<div id="queue"></div>
+		<div id="actions">
+			<div>
+				<button id="enqueue">Enqueue</button>
+				<span id="enqueue-item" contenteditable>1</span>
+			</div>
+			<div class="full">
+				<button id="dequeue">Dequeue</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		window.log = (...q) => console.log(...q);
+		window.$ = (...q) => document.querySelector(...q);
+		window.$$ = (...q) => document.querySelectorAll(...q);
+	
+		class Queue{
+			constructor(capacity = 8){
+				this._capacity = capacity;
+				this._items = [];
+			}
+			getLength(){
+				return this._items.length;
+			}
+			getCapacity(){
+				return this._capacity;
+			}
+			getItems(){
+				return this._items;
+			}
+			isEmpty(){
+				return this.getLength() == 0;
+			}
+			isNotEmpty(){
+				return !this.isEmpty();
+			}
+			isFull(){
+				return this.getLength() >= this.getCapacity();
+			}
+			isNotFull(){
+				return !this.isFull();
+			}
+			enqueue(item){
+				if(this.isFull()) return this;
+				
+				this._items.push(item);
+				return this;
+			}
+			dequeue(){
+				return this._items.shift();
+			}
+		}
+		
+		const colors = ['#ffbe76', '#ff7979', '#badc58', '#f9ca24', '#f0932b', '#eb4d4b', '#6ab04c', '#7ed6df', '#e056fd', '#686de0', '#30336b', '#be2edd', '#4834d4'];
+		colors.__proto__.select = () => colors[Math.floor(Math.random() * colors.length)];
+		const sleep = (time = 10) => new Promise(resolve => setTimeout(resolve, time));
+		
+		class QueueUI extends Queue{
+			constructor(){
+				super(Math.floor($('#queue').getBoundingClientRect().height / 60));
+				
+				this.queueEl = $('#queue');
+				this.enqueueEl = $('#enqueue');
+				this.dequeueEl = $('#dequeue');
+				this.enqueueItemEl = $('#enqueue-item');
+				this.actionsEl = $('#actions');
+				
+				this.enqueueItemChangeColor();
+				this.configActionsStatus();
+			}
+			async enqueueEvent(){
+				if(this.isFull()) return;
+				
+				this.enqueueDisabled();
+				this.enqueue({
+					item : this.enqueueItemEl.innerText,
+					color : window.getComputedStyle(ui.enqueueItemEl).backgroundColor
+				});
+				
+				
+				// animation
+				const queueElRect = this.queueEl.getBoundingClientRect();
+				const actionsRect = this.actionsEl.getBoundingClientRect();
+				const { style } = this.enqueueItemEl;
+				
+				style.position = 'absolute';
+				style.width = actionsRect.width/2 - 5 + 'px';
+				style.bottom = '70px';
+				style.right = '10px';
+				await sleep();
+				style.transition = 'all .4s';
+				style.bottom = `calc(100% - 60px)`;
+				style.width = queueElRect.width - 30 + 'px';
+				await sleep(400);
+				style.right = actionsRect.width + 35 + 'px';
+				await sleep(400);
+				style.bottom = ($('.container').getBoundingClientRect().height - $('#queue').getBoundingClientRect().height) / 2 + (this.getLength()-1) * 60 + 'px';
+				await sleep(400);
+				
+				style.transition = 'none';
+				style.position = 'static';
+				style.width = null;
+				this.enqueueItemChangeColor();
+				
+				ui.showQueue();
+				this.configActionsStatus();
+			}
+			async dequeueEvent(){
+				if(this.isEmpty()) return;
+				
+				this.dequeueDisabled();
+				this.dequeue();
+				
+				const queueElRect = this.queueEl.getBoundingClientRect();
+				const item = $('#queue > *:last-child');
+				const { style } = item;
+				
+				style.position = 'absolute';
+				style.width = queueElRect.width - 30 + 'px';
+				style.bottom = ($('.container').getBoundingClientRect().height - $('#queue').getBoundingClientRect().height)/2 + 'px';
+				this.queueEl.style.paddingBottom = '60px';
+				style.opacity = 1;
+				style.left = '25px';
+				await sleep();
+				style.transition = 'all .4s';
+				this.queueEl.style.transition = 'all .4s';
+				
+				style.bottom = ($('.container').getBoundingClientRect().height - $('#queue').getBoundingClientRect().height)/2 - 60 + 'px';
+				this.queueEl.style.paddingBottom = null;
+				await sleep(400);
+				this.queueEl.style.transition = null;
+				style.bottom = $('.container').getBoundingClientRect().height / 2 + 'px';
+				style.left = ($('.container').getBoundingClientRect().width - item.getBoundingClientRect().width) / 2 + 'px';
+				style.opacity = 0;
+				style.transform = 'scale(4)';
+				await sleep(400);
+				item.remove();
+				
+				this.configActionsStatus();
+			}
+			configActionsStatus(){
+				if(this.enqueueEl.disabled && this.isNotFull()) this.enqueueDisabled(false);
+				if(!this.enqueueEl.disabled && this.isFull()) this.enqueueDisabled(true);
+				
+				if(this.dequeueEl.disabled && this.isNotEmpty()) this.dequeueDisabled(false);
+				if(!this.dequeueEl.disabled && this.isEmpty()) this.dequeueDisabled(true);
+				
+				const { style } = this.queueEl;
+				style.transition = 'border .4s';
+				if(this.isFull()){
+					style.borderRightColor = 'rgb(235, 77, 75)';
+					style.borderLeftColor = 'rgb(235, 77, 75)';
+				}else{
+					style.borderRightColor = '#999';
+					style.borderLeftColor = '#999';
+				}
+			}
+			enqueueDisabled(status = true){
+				this.enqueueEl.disabled = status;
+				return this;
+			}
+			dequeueDisabled(status = true){
+				this.dequeueEl.disabled = status;
+				return this;
+			}
+			showQueue(){
+				this.queueEl.innerHTML = '';
+				
+				let items = this.getItems();
+				for(let i = this.getLength() - 1; i >= 0; i--){
+					const item = items[i];
+					
+					const span = document.createElement('span');
+					span.innerText = item.item;
+					span.style.background = item.color;
+					
+					this.queueEl.appendChild(span);
+				}
+			}
+			enqueueItemChangeColor(){
+				this.enqueueItemEl.style.background = colors.select();
+			}
+		}
+		
+		const ui = new QueueUI;
+		
+		$('#enqueue').onclick = () => ui.enqueueEvent();
+		$('#dequeue').onclick = () => ui.dequeueEvent();
+		
+		ui.enqueue({
+			item : Math.floor(Math.random() * 10),
+			color : colors.select()
+		});
+		ui.enqueue({
+			item : Math.floor(Math.random() * 10),
+			color : colors.select()
+		});
+		ui.showQueue();
+		ui.configActionsStatus();
+	</script>
+</body>
+</html>

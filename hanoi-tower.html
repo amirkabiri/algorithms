@@ -1,0 +1,238 @@
+<div id="hanoi">
+	<div id="bars">
+		<span></span>
+		<span></span>
+		<span></span>
+	</div>
+	<div id="disks"></div>
+</div>
+
+<style>
+	#hanoi{
+		width:1000px;
+		height:500px;
+		background:#ddd;
+		position:fixed;
+		margin:auto;
+		top:0;
+		left:0;
+		right:0;
+		bottom:0
+	}
+	
+	#bars{
+		position:absolute;
+		width:100%;
+		height:100%;
+		top:0;
+		left:0;
+		right:0;
+		bottom:0;
+		display:flex;
+		justify-content:space-around;
+		align-items:flex-end;
+	}
+	#bars > span{
+		width:10px;
+		height:60%;
+		background-color:#999;
+	}
+	
+	#disks{
+		width: 100%;
+		height:100%;
+		position:relative;
+		top:0;
+		left:0;
+		bottom:0;
+		right:0;
+	}
+	#disks > *{
+		position:absolute;
+		background:blue;
+		height:30px;
+	}
+	
+	#control{
+		width:600px;
+		height:max-content;
+		position:fixed;
+		left:0;
+		right:0;
+		margin:auto;
+		text-align:center;
+	}
+	#control > *{
+		padding:5px 10px;
+		box-sizing:content-box;
+	}
+	#control > input:first-child{
+		width:73px;
+	}
+	#control > input:nth-child(2){
+		width:220px;
+	}
+	#control > button{
+		
+	}
+</style>
+
+<div id="control">
+	<input id="control-counts" placeholder="disk counts">
+	<input id="control-animation" placeholder="animation duration (default : 400ms)">
+	<button id="control-play">Play</button>
+	<button id="control-reset">Reset</button>
+</div>
+
+<script>
+	window.$ = q => document.querySelector(q);
+	window.$$ = q => document.querySelectorAll(q);
+	window.log = (...q) => console.log(...q);
+	
+	const bars = {0 : [], 1 : [], 2 : []};
+	let maxDisk = null;
+	const config = {
+		animationDuration : 400,
+		maxDiskWidth : 200,
+		width : 1000,
+		height : 500,
+		barWidth : 10,
+		playing : false
+	};
+	config.barHeight = config.height / 100 * 60;
+	
+	function initBars(n){
+		maxDisk = n;
+		
+		for(let i = n; i >= 1; i --){
+			bars[0].push(i);
+		
+			const disk = makeDisk(i);
+			$('#disks').appendChild(disk);
+		}
+	}
+	function barLeftPos(barIndex = 0){
+		const spaceAround = (config.width - 3 * config.barWidth) / 6;
+		
+		switch(barIndex){
+			case 0:
+				return spaceAround;
+				
+			case 1:
+				return 3 * spaceAround;
+				
+			case 2:
+				return 5 * spaceAround;
+		}
+	}
+	function makeDisk(diskValue){
+		const div = document.createElement('div');
+		div.dataset.value = diskValue;
+		const index = maxDisk - diskValue;
+		
+		const { style } = div;
+		const width = diskValue * config.maxDiskWidth / maxDisk;
+		style.width = width;
+		style.bottom = (index * 40) + 'px';
+		style.left = ((barLeftPos(0) - width) / 2 + 85) + 'px';
+				
+		return div;
+	}
+	function sleep(milisecond){
+		return new Promise(resolve => setTimeout(resolve, milisecond));
+	}
+	
+	function *hanoi(a, b, c, n){
+		if(n < 1){
+			yield null;
+		}else if(n == 1){
+			yield [a, c];
+		}else{
+			yield *hanoi(a, c, b, n-1);
+			yield [a, c];
+			yield *hanoi(b, a, c, n-1);
+		}
+	}
+	function move(a, b){
+		return new Promise(resolve => {
+			const disk = bars[a].pop();
+			const el = $(`#disks > [data-value="${ disk }"]`);
+			
+			const { style } = el;
+			
+			style.transition = `all ${ config.animationDuration / 1000 }s`;
+			style.bottom = (config.height / 100 * 70) + 'px';
+			
+			setTimeout(() => {
+				style.left = (barLeftPos(b) + config.barWidth / 2 - parseInt(style.width) / 2 + 10 * b) + 'px';
+				
+				setTimeout(() => {
+					const oneBarItemsLength = bars[b].length;
+					style.bottom = (oneBarItemsLength * 40) + 'px';
+					
+					setTimeout(() => {
+						bars[b].push(disk);
+						resolve();
+					}, config.animationDuration);
+				}, config.animationDuration);
+			}, config.animationDuration);
+		});
+	}
+	
+	initBars(4);
+	
+	let hanoiGen = hanoi(0, 1, 2, bars[0].length);
+	async function play(){
+		const nextStep = hanoiGen.next().value;
+		if(nextStep === null || nextStep === undefined || !config.playing) return;
+		
+		log('nextStep', nextStep);
+		
+		await move(nextStep[0], nextStep[1]);
+		
+		play();
+	}
+	
+	$('#control-play').onclick = () => {
+		let animation = parseInt($('#control-animation').value);
+		if(isNaN(animation)) animation = 400;
+		
+		config.animationDuration = animation;
+		config.playing = true;
+		
+		let counts = parseInt($('#control-counts').value);
+		if(isNaN(counts)) counts = 4;
+
+		for(let key in bars){
+			bars[key] = [];
+		}
+		$('#disks').innerHTML = '';
+		initBars(counts);
+		
+		hanoiGen = hanoi(0, 1, 2, counts);
+		
+		setTimeout(play, 1000);
+	};
+	$('#control-counts').onkeyup = function(){
+		let counts = parseInt(this.value);
+		
+		if(isNaN(counts)) counts = 0;
+		
+		for(let key in bars){
+			bars[key] = [];
+		}
+		
+		$('#disks').innerHTML = '';
+		
+		initBars(counts);
+	}
+	$('#control-reset').onclick = function(){
+		for(let key in bars){
+			bars[key] = [];
+		}
+		
+		$('#disks').innerHTML = '';
+		
+		config.playing = false;
+	}
+</script>
